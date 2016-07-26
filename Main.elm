@@ -26,7 +26,8 @@ echoServer =
 
 messageDecoder : Json.Decoder Message
 messageDecoder =
-    Json.object2 Message
+    Json.object3 Message
+        ("msg_type" := Json.string)
         ("name" := Json.string)
         ("text" := Json.string)
 
@@ -46,7 +47,8 @@ readMessage json =
 
 
 type alias Message =
-    { user : String
+    { msg_type : String
+    , name : String
     , text : String
     }
 
@@ -81,7 +83,8 @@ update msg { input, messages } =
             ( Model newInput messages, Cmd.none )
 
         Send ->
-            ( Model "" messages, WebSocket.send echoServer input )
+            -- TODO: Proper JSON serialization
+            ( Model "" messages, WebSocket.send echoServer ("{\"msg_type\": \"chat\", \"name\":\"brian\", \"text\":\"" ++ input ++ "\"}") )
 
         NewMessage msg ->
             ( Model input (msg :: messages), Cmd.none )
@@ -131,4 +134,4 @@ view model =
 
 viewMessage : Message -> Html msg
 viewMessage message =
-    div [] [ text (message.user ++ ": " ++ message.text) ]
+    div [] [ text (message.name ++ ": " ++ message.text ++ "(" ++ message.msg_type ++ ")") ]
