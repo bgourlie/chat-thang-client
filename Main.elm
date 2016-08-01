@@ -54,14 +54,15 @@ type alias Message =
 
 
 type alias Model =
-    { input : String
+    { userName : String
+    , input : String
     , messages : List Message
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model "" [], Cmd.none )
+    ( Model "anonymous_user" "" [], Cmd.none )
 
 
 
@@ -73,27 +74,31 @@ type Msg
     | Send
     | NewMessage Message
     | DecodeError String
+    | NameChange String
     | NoOp
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg { input, messages } =
+update msg { userName, input, messages } =
     case msg of
         Input newInput ->
-            ( Model newInput messages, Cmd.none )
+            ( Model userName newInput messages, Cmd.none )
 
         Send ->
             -- TODO: Proper JSON serialization
-            ( Model "" messages, WebSocket.send echoServer ("{\"msgType\": \"chat\", \"name\":\"brian\", \"text\":\"" ++ input ++ "\"}") )
+            ( Model userName "" messages, WebSocket.send echoServer ("{\"msgType\": \"chat\", \"name\":\"" ++ userName ++ " \", \"text\":\"" ++ input ++ "\"}") )
 
         NewMessage msg ->
-            ( Model input (msg :: messages), Cmd.none )
+            ( Model userName input (msg :: messages), Cmd.none )
 
         DecodeError string ->
-            ( Model input messages, Cmd.none )
+            ( Model userName input messages, Cmd.none )
+
+        NameChange newName ->
+            ( Model newName input messages, Cmd.none )
 
         NoOp ->
-            ( Model input messages, Cmd.none )
+            ( Model userName input messages, Cmd.none )
 
 
 
@@ -126,7 +131,13 @@ listenEnterKey =
 view : Model -> Html Msg
 view model =
     div []
-        [ input [ onInput Input, value model.input ] []
+        [ div []
+            [ text ("Your username: " ++ model.userName) ]
+        , label []
+            [ text "User Name: "
+            , input [ onInput NameChange ] []
+            ]
+        , input [ onInput Input, value model.input ] []
         , button [ onClick Send ] [ text "Send" ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         ]
