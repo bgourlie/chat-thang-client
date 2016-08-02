@@ -1,6 +1,6 @@
 module Main exposing (..)
 
-import Html exposing (..)
+import Html exposing (Html, div, text, input, button, label)
 import Html.App as App
 import Html.Attributes exposing (..)
 import Html.Events exposing (..)
@@ -8,6 +8,7 @@ import Keyboard
 import WebSocket
 import Json.Decode exposing ((:=))
 import Json.Decode as Json
+import Json.Encode exposing (object, encode, string)
 
 
 main =
@@ -24,9 +25,9 @@ echoServer =
     "ws://localhost:2794"
 
 
-messageDecoder : Json.Decoder Message
+messageDecoder : Json.Decoder ChatMessage
 messageDecoder =
-    Json.object3 Message
+    Json.object3 ChatMessage
         ("msgType" := Json.string)
         ("name" := Json.string)
         ("text" := Json.string)
@@ -46,7 +47,7 @@ readMessage json =
 -- MODEL
 
 
-type alias Message =
+type alias ChatMessage =
     { msgType : String
     , name : String
     , text : String
@@ -56,7 +57,7 @@ type alias Message =
 type alias Model =
     { userName : String
     , input : String
-    , messages : List Message
+    , messages : List ChatMessage
     }
 
 
@@ -71,8 +72,8 @@ init =
 
 type Msg
     = Input String
-    | Send
-    | NewMessage Message
+    | Send Json.Encode.Value
+    | NewMessage ChatMessage
     | DecodeError String
     | NameChange String
     | NoOp
@@ -84,9 +85,8 @@ update msg { userName, input, messages } =
         Input newInput ->
             ( Model userName newInput messages, Cmd.none )
 
-        Send ->
-            -- TODO: Proper JSON serialization
-            ( Model userName "" messages, WebSocket.send echoServer ("{\"msgType\": \"chat\", \"name\":\"" ++ userName ++ " \", \"text\":\"" ++ input ++ "\"}") )
+        Send chatMessage ->
+            ( Model userName "" messages, WebSocket.send echoServer (encode 0 chatMessage) )
 
         NewMessage msg ->
             ( Model userName input (msg :: messages), Cmd.none )
@@ -109,16 +109,16 @@ subscriptions : Model -> Sub Msg
 subscriptions model =
     Sub.batch
         [ WebSocket.listen echoServer readMessage
-        , listenEnterKey
+        , listenEnterKey model
         ]
 
 
-listenEnterKey : Sub Msg
-listenEnterKey =
+listenEnterKey : Model -> Sub Msg
+listenEnterKey model =
     Keyboard.presses
         (\key ->
             if key == 13 then
-                Send
+                sendMessage model
             else
                 NoOp
         )
@@ -138,11 +138,22 @@ view model =
             , input [ onInput NameChange ] []
             ]
         , input [ onInput Input, value model.input ] []
-        , button [ onClick Send ] [ text "Send" ]
+        , button [ onClick (sendMessage model) ] [ text "Send" ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         ]
 
 
-viewMessage : Message -> Html msg
+viewMessage : ChatMessage -> Html msg
 viewMessage message =
     div [] [ text (message.name ++ ": " ++ message.text ++ "(" ++ message.msgType ++ ")") ]
+
+
+sendMessage : Model -> Msg
+sendMessage model =
+    Send
+        (object
+            [ ( "msgType", string "chat" )
+            , ( "name", string model.userName )
+            , ( "text", string model.input )
+            ]
+        )
