@@ -145,7 +145,10 @@ view model =
 
 viewMessage : ChatMessage -> Html msg
 viewMessage message =
-    div [] [ text (message.name ++ ": " ++ message.text ++ "(" ++ message.msgType ++ ")") ]
+    div [ class message.msgType ]
+        [ div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
+        , div [ style [ inlineBlock ] ] [ text message.text ]
+        ]
 
 
 sendMessage : Model -> Msg
@@ -157,3 +160,22 @@ sendMessage model =
             , ( "text", string model.input )
             ]
         )
+
+
+
+-- CSS Helpers
+
+
+inlineBlock : ( String, String )
+inlineBlock =
+    ( "display", "inline-block" )
+
+
+bold : ( String, String )
+bold =
+    ( "font-weight", "bold" )
+
+
+withWidth : String -> ( String, String )
+withWidth width =
+    ( "width", width )
