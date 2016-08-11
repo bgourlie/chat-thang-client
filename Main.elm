@@ -9,6 +9,7 @@ import WebSocket
 import Json.Decode exposing ((:=))
 import Json.Decode as Json
 import Json.Encode exposing (object, encode, string)
+import Date exposing (Date)
 
 
 main =
@@ -22,15 +23,32 @@ main =
 
 echoServer : String
 echoServer =
-    "ws://localhost:2794"
+    "ws://localhost:8080"
+
+
+messageEncoder : ChatMessage -> Json.Encode.Value
+messageEncoder message =
+    (object
+        [ ( "msgType", string "chat" )
+        , ( "name", string message.name )
+        , ( "text", string message.text )
+        , ( "time", string "TODO" )
+        ]
+    )
+
+
+timeDecoder : Json.Decoder String -> Json.Decoder Date
+timeDecoder d =
+    Json.customDecoder d Date.fromString
 
 
 messageDecoder : Json.Decoder ChatMessage
 messageDecoder =
-    Json.object3 ChatMessage
+    Json.object4 ChatMessage
         ("msgType" := Json.string)
         ("name" := Json.string)
         ("text" := Json.string)
+        ("time" := Json.string |> timeDecoder)
 
 
 readMessage : String -> Msg
@@ -51,6 +69,7 @@ type alias ChatMessage =
     { msgType : String
     , name : String
     , text : String
+    , time : Date
     }
 
 
@@ -72,7 +91,7 @@ init =
 
 type Msg
     = Input String
-    | Send Json.Encode.Value
+    | Send ChatMessage
     | NewMessage ChatMessage
     | DecodeError String
     | NameChange String
@@ -86,7 +105,7 @@ update msg { userName, input, messages } =
             ( Model userName newInput messages, Cmd.none )
 
         Send chatMessage ->
-            ( Model userName "" messages, WebSocket.send echoServer (encode 0 chatMessage) )
+            ( Model userName "" messages, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
 
         NewMessage msg ->
             ( Model userName input (msg :: messages), Cmd.none )
@@ -154,12 +173,11 @@ viewMessage message =
 sendMessage : Model -> Msg
 sendMessage model =
     Send
-        (object
-            [ ( "msgType", string "chat" )
-            , ( "name", string model.userName )
-            , ( "text", string model.input )
-            ]
-        )
+        { msgType = "chat"
+        , name = model.userName
+        , text = model.input
+        , time = Date.fromTime 0 -- TODO: Get actual time
+        }
 
 
 
