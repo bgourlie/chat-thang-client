@@ -9,7 +9,10 @@ import WebSocket
 import Json.Decode exposing ((:=))
 import Json.Decode as Json
 import Json.Encode exposing (object, encode, string)
-import Date exposing (Date)
+import Date exposing (Date, now)
+import Date
+import Date.Extra
+import Task
 
 
 main =
@@ -32,7 +35,7 @@ messageEncoder message =
         [ ( "msgType", string "chat" )
         , ( "name", string message.name )
         , ( "text", string message.text )
-        , ( "time", string "TODO" )
+        , ( "time", string (Date.Extra.toUtcIsoString message.time) )
         ]
     )
 
@@ -77,12 +80,13 @@ type alias Model =
     { userName : String
     , input : String
     , messages : List ChatMessage
+    , lastMessageSendTime : Date
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model "anonymous_user" "" [], Cmd.none )
+    ( Model "anonymous_user" "" [] (Date.fromTime 0), Cmd.none )
 
 
 
@@ -91,7 +95,8 @@ init =
 
 type Msg
     = Input String
-    | Send ChatMessage
+    | Send Date
+    | GetMessageSendTime
     | NewMessage ChatMessage
     | DecodeError String
     | NameChange String
@@ -104,14 +109,21 @@ update msg model =
         Input newInput ->
             ( { model | input = newInput }, Cmd.none )
 
-        Send chatMessage ->
-            ( { model | input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
+        Send time ->
+            let
+                chatMessage =
+                    newChatMessage time model
+            in
+                ( { model | lastMessageSendTime = time, input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
 
         DecodeError string ->
             ( model, Cmd.none )
+
+        GetMessageSendTime ->
+            ( model, (Task.perform (\_ -> Debug.crash "") Send Date.now) )
 
         -- TODO: How should we surface errors like this?
         NameChange newName ->
@@ -138,7 +150,7 @@ listenEnterKey model =
     Keyboard.presses
         (\key ->
             if key == 13 then
-                sendMessage model
+                GetMessageSendTime
             else
                 NoOp
         )
@@ -158,7 +170,7 @@ view model =
             , input [ onInput NameChange ] []
             ]
         , input [ onInput Input, value model.input ] []
-        , button [ onClick (sendMessage model) ] [ text "Send" ]
+        , button [ onClick GetMessageSendTime ] [ text "Send" ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         ]
 
@@ -171,16 +183,13 @@ viewMessage message =
         ]
 
 
-sendMessage : Model -> Msg
-sendMessage model =
-    Send
-        { msgType = "chat"
-        , name = model.userName
-        , text = model.input
-        , time =
-            Date.fromTime 0
-            -- TODO: Get actual time
-        }
+newChatMessage : Date -> Model -> ChatMessage
+newChatMessage time model =
+    { msgType = "chat"
+    , name = model.userName
+    , text = model.input
+    , time = time
+    }
 
 
 
