@@ -99,25 +99,26 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg { userName, input, messages } =
+update msg model =
     case msg of
         Input newInput ->
-            ( Model userName newInput messages, Cmd.none )
+            ( { model | input = newInput }, Cmd.none )
 
         Send chatMessage ->
-            ( Model userName "" messages, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
+            ( { model | input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
 
         NewMessage msg ->
-            ( Model userName input (msg :: messages), Cmd.none )
+            ( { model | messages = (msg :: model.messages) }, Cmd.none )
 
         DecodeError string ->
-            ( Model userName input messages, Cmd.none )
+            ( model, Cmd.none )
 
+        -- TODO: How should we surface errors like this?
         NameChange newName ->
-            ( Model newName input messages, Cmd.none )
+            ( { model | userName = newName }, Cmd.none )
 
         NoOp ->
-            ( Model userName input messages, Cmd.none )
+            ( model, Cmd.none )
 
 
 
@@ -176,7 +177,9 @@ sendMessage model =
         { msgType = "chat"
         , name = model.userName
         , text = model.input
-        , time = Date.fromTime 0 -- TODO: Get actual time
+        , time =
+            Date.fromTime 0
+            -- TODO: Get actual time
         }
 
 
