@@ -119,13 +119,13 @@ update msg model =
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
 
+        -- TODO: How should we surface errors like this?
         DecodeError string ->
             ( model, Cmd.none )
 
         GetMessageSendTime ->
             ( model, (Task.perform (\_ -> Debug.crash "") Send Date.now) )
 
-        -- TODO: How should we surface errors like this?
         NameChange newName ->
             ( { model | userName = newName }, Cmd.none )
 
@@ -178,7 +178,8 @@ view model =
 viewMessage : ChatMessage -> Html msg
 viewMessage message =
     div [ class message.msgType ]
-        [ div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
+        [ div [ style [ smallFont ] ] [ text (toString message.time) ]
+        , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
         , div [ style [ inlineBlock ] ] [ text message.text ]
         ]
 
@@ -209,3 +210,8 @@ bold =
 withWidth : String -> ( String, String )
 withWidth width =
     ( "width", width )
+
+
+smallFont : ( String, String )
+smallFont =
+    ( "font-size", "10px" )
