@@ -9,6 +9,10 @@ import WebSocket
 import Json.Decode exposing ((:=))
 import Json.Decode as Json
 import Json.Encode exposing (object, encode, string)
+import Date exposing (Date, now)
+import Date
+import Date.Extra
+import Task
 
 
 main =
@@ -22,15 +26,32 @@ main =
 
 echoServer : String
 echoServer =
-    "ws://localhost:2794"
+    "ws://localhost:8080"
+
+
+messageEncoder : ChatMessage -> Json.Encode.Value
+messageEncoder message =
+    (object
+        [ ( "msgType", string "chat" )
+        , ( "name", string message.name )
+        , ( "text", string message.text )
+        , ( "time", string (Date.Extra.toUtcIsoString message.time) )
+        ]
+    )
+
+
+timeDecoder : Json.Decoder String -> Json.Decoder Date
+timeDecoder d =
+    Json.customDecoder d Date.fromString
 
 
 messageDecoder : Json.Decoder ChatMessage
 messageDecoder =
-    Json.object3 ChatMessage
+    Json.object4 ChatMessage
         ("msgType" := Json.string)
         ("name" := Json.string)
         ("text" := Json.string)
+        ("time" := Json.string |> timeDecoder)
 
 
 readMessage : String -> Msg
@@ -51,6 +72,7 @@ type alias ChatMessage =
     { msgType : String
     , name : String
     , text : String
+    , time : Date
     }
 
 
@@ -58,12 +80,13 @@ type alias Model =
     { userName : String
     , input : String
     , messages : List ChatMessage
+    , lastMessageSendTime : Date
     }
 
 
 init : ( Model, Cmd Msg )
 init =
-    ( Model "anonymous_user" "" [], Cmd.none )
+    ( Model "anonymous_user" "" [] (Date.fromTime 0), Cmd.none )
 
 
 
@@ -72,7 +95,8 @@ init =
 
 type Msg
     = Input String
-    | Send Json.Encode.Value
+    | Send Date
+    | GetMessageSendTime
     | NewMessage ChatMessage
     | DecodeError String
     | NameChange String
@@ -80,25 +104,33 @@ type Msg
 
 
 update : Msg -> Model -> ( Model, Cmd Msg )
-update msg { userName, input, messages } =
+update msg model =
     case msg of
         Input newInput ->
-            ( Model userName newInput messages, Cmd.none )
+            ( { model | input = newInput }, Cmd.none )
 
-        Send chatMessage ->
-            ( Model userName "" messages, WebSocket.send echoServer (encode 0 chatMessage) )
+        Send time ->
+            let
+                chatMessage =
+                    newChatMessage time model
+            in
+                ( { model | lastMessageSendTime = time, input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
 
         NewMessage msg ->
-            ( Model userName input (msg :: messages), Cmd.none )
+            ( { model | messages = (msg :: model.messages) }, Cmd.none )
 
+        -- TODO: How should we surface errors like this?
         DecodeError string ->
-            ( Model userName input messages, Cmd.none )
+            ( model, Cmd.none )
+
+        GetMessageSendTime ->
+            ( model, (Task.perform (\_ -> Debug.crash "") Send Date.now) )
 
         NameChange newName ->
-            ( Model newName input messages, Cmd.none )
+            ( { model | userName = newName }, Cmd.none )
 
         NoOp ->
-            ( Model userName input messages, Cmd.none )
+            ( model, Cmd.none )
 
 
 
@@ -118,7 +150,7 @@ listenEnterKey model =
     Keyboard.presses
         (\key ->
             if key == 13 then
-                sendMessage model
+                GetMessageSendTime
             else
                 NoOp
         )
@@ -138,7 +170,7 @@ view model =
             , input [ onInput NameChange ] []
             ]
         , input [ onInput Input, value model.input ] []
-        , button [ onClick (sendMessage model) ] [ text "Send" ]
+        , button [ onClick GetMessageSendTime ] [ text "Send" ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         ]
 
@@ -146,20 +178,19 @@ view model =
 viewMessage : ChatMessage -> Html msg
 viewMessage message =
     div [ class message.msgType ]
-        [ div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
+        [ div [ style [ smallFont ] ] [ text (toString message.time) ]
+        , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
         , div [ style [ inlineBlock ] ] [ text message.text ]
         ]
 
 
-sendMessage : Model -> Msg
-sendMessage model =
-    Send
-        (object
-            [ ( "msgType", string "chat" )
-            , ( "name", string model.userName )
-            , ( "text", string model.input )
-            ]
-        )
+newChatMessage : Date -> Model -> ChatMessage
+newChatMessage time model =
+    { msgType = "chat"
+    , name = model.userName
+    , text = model.input
+    , time = time
+    }
 
 
 
@@ -179,3 +210,8 @@ bold =
 withWidth : String -> ( String, String )
 withWidth width =
     ( "width", width )
+
+
+smallFont : ( String, String )
+smallFont =
+    ( "font-size", "10px" )
