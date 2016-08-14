@@ -13,6 +13,7 @@ import Date exposing (Date, now)
 import Date
 import Date.Extra
 import Task
+import String exposing (isEmpty)
 
 
 main =
@@ -150,7 +151,7 @@ listenEnterKey model =
     Keyboard.presses
         (\key ->
             if key == 13 then
-                GetMessageSendTime
+                sendMessage model
             else
                 NoOp
         )
@@ -170,7 +171,7 @@ view model =
             , input [ onInput NameChange ] []
             ]
         , input [ onInput Input, value model.input ] []
-        , button [ onClick GetMessageSendTime ] [ text "Send" ]
+        , button [ onClick (sendMessage model) ] [ text "Send" ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         ]
 
@@ -191,6 +192,15 @@ newChatMessage time model =
     , text = model.input
     , time = time
     }
+
+
+sendMessage : Model -> Msg
+sendMessage model =
+    -- TODO: isEmpty doesn't prevent sending just whitespace
+    if isEmpty model.input then
+        NoOp
+    else
+        GetMessageSendTime
 
 
 
