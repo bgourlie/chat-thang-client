@@ -157,6 +157,14 @@ listenEnterKey model =
         )
 
 
+updateName : String -> AppMessage
+updateName newName =
+    if String.length newName <= 16 then
+        NameChange newName
+    else
+        NameChange (String.left 16 newName)
+
+
 
 -- VIEW
 
@@ -168,7 +176,7 @@ view model =
             [ text ("Your username: " ++ model.userName) ]
         , label []
             [ text "User Name: "
-            , input [ onInput NameChange ] []
+            , input [ onInput updateName ] []
             ]
         , div [] (List.map viewMessage (List.reverse model.messages))
         , input [ onInput Input, value model.input ] []
