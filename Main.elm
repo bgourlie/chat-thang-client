@@ -213,8 +213,7 @@ newErrorMessage time description =
 
 sendMessage : Model -> AppMessage
 sendMessage model =
-    -- TODO: isEmpty doesn't prevent sending just whitespace
-    if isEmpty model.input then
+    if isEmpty <| String.trim <| model.input then
         NoOp
     else
         GetTimeAndThen (\time -> Send (newChatMessage time model))
