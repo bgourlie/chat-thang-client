@@ -100,8 +100,8 @@ init =
 
 type AppMessage
     = Input String
-    | Send Date
-    | GetMessageSendTime
+    | Send ChatMessage
+    | GetTimeAndThen (Date -> AppMessage)
     | NewMessage ChatMessage
     | DecodeError String
     | UnexpectedServerError
@@ -115,12 +115,8 @@ update msg model =
         Input newInput ->
             ( { model | input = newInput }, Cmd.none )
 
-        Send time ->
-            let
-                chatMessage =
-                    newChatMessage time model
-            in
-                ( { model | lastMessageSendTime = time, input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
+        Send chatMessage ->
+            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
@@ -132,8 +128,8 @@ update msg model =
         UnexpectedServerError ->
             ( model, Cmd.none )
 
-        GetMessageSendTime ->
-            ( model, (Task.perform assertNeverHandler Send Date.now) )
+        GetTimeAndThen successHandler ->
+            ( model, (Task.perform assertNeverHandler successHandler Date.now) )
 
         NameChange newName ->
             ( { model | userName = newName }, Cmd.none )
@@ -213,7 +209,7 @@ sendMessage model =
     if isEmpty model.input then
         NoOp
     else
-        GetMessageSendTime
+        GetTimeAndThen (\time -> Send (newChatMessage time model))
 
 
 
