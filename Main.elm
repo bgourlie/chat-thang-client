@@ -64,9 +64,9 @@ readMessage json =
         Err message ->
             -- If the server fails to serialize a message, it returns an empty object.
             if json == "{}" then
-                UnexpectedServerError
+                GetTimeAndThen (\time -> Send (newErrorMessage time "An unexpected server error occurred."))
             else
-                DecodeError message
+                GetTimeAndThen (\time -> Send (newErrorMessage time "An error occurred while decoding a message from the server.  You may need to update the client."))
 
 
 
@@ -103,8 +103,6 @@ type AppMessage
     | Send ChatMessage
     | GetTimeAndThen (Date -> AppMessage)
     | NewMessage ChatMessage
-    | DecodeError String
-    | UnexpectedServerError
     | NameChange String
     | NoOp
 
@@ -120,13 +118,6 @@ update msg model =
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
-
-        -- TODO: How should we surface errors like this?
-        DecodeError string ->
-            ( model, Cmd.none )
-
-        UnexpectedServerError ->
-            ( model, Cmd.none )
 
         GetTimeAndThen successHandler ->
             ( model, (Task.perform assertNeverHandler successHandler Date.now) )
@@ -199,6 +190,15 @@ newChatMessage time model =
     { msgType = "chat"
     , name = model.userName
     , text = model.input
+    , time = time
+    }
+
+
+newErrorMessage : Date -> String -> ChatMessage
+newErrorMessage time description =
+    { msgType = "error"
+    , name = "error_reporter"
+    , text = description
     , time = time
     }
 
