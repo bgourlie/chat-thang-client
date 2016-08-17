@@ -133,13 +133,18 @@ update msg model =
             ( model, Cmd.none )
 
         GetMessageSendTime ->
-            ( model, (Task.perform (\_ -> Debug.crash "") Send Date.now) )
+            ( model, (Task.perform assertNeverHandler Send Date.now) )
 
         NameChange newName ->
             ( { model | userName = newName }, Cmd.none )
 
         NoOp ->
             ( model, Cmd.none )
+
+
+assertNeverHandler : a -> b
+assertNeverHandler =
+    (\_ -> Debug.crash "Assertion failed: This should never happen")
 
 
 
