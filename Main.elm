@@ -62,7 +62,11 @@ readMessage json =
             NewMessage message
 
         Err message ->
-            DecodeError message
+            -- If the server fails to serialize a message, it returns an empty object.
+            if json == "{}" then
+                UnexpectedServerError
+            else
+                DecodeError message
 
 
 
@@ -100,6 +104,7 @@ type AppMessage
     | GetMessageSendTime
     | NewMessage ChatMessage
     | DecodeError String
+    | UnexpectedServerError
     | NameChange String
     | NoOp
 
@@ -122,6 +127,9 @@ update msg model =
 
         -- TODO: How should we surface errors like this?
         DecodeError string ->
+            ( model, Cmd.none )
+
+        UnexpectedServerError ->
             ( model, Cmd.none )
 
         GetMessageSendTime ->
@@ -170,9 +178,9 @@ view model =
             [ text "User Name: "
             , input [ onInput NameChange ] []
             ]
+        , div [] (List.map viewMessage (List.reverse model.messages))
         , input [ onInput Input, value model.input ] []
         , button [ onClick (sendMessage model) ] [ text "Send" ]
-        , div [] (List.map viewMessage (List.reverse model.messages))
         ]
 
 
