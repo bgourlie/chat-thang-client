@@ -55,7 +55,7 @@ messageDecoder =
         ("time" := Json.string |> timeDecoder)
 
 
-readMessage : String -> Msg
+readMessage : String -> AppMessage
 readMessage json =
     case Json.decodeString messageDecoder json of
         Ok message ->
@@ -85,7 +85,7 @@ type alias Model =
     }
 
 
-init : ( Model, Cmd Msg )
+init : ( Model, Cmd AppMessage )
 init =
     ( Model "anonymous_user" "" [] (Date.fromTime 0), Cmd.none )
 
@@ -94,7 +94,7 @@ init =
 -- UPDATE
 
 
-type Msg
+type AppMessage
     = Input String
     | Send Date
     | GetMessageSendTime
@@ -104,7 +104,7 @@ type Msg
     | NoOp
 
 
-update : Msg -> Model -> ( Model, Cmd Msg )
+update : AppMessage -> Model -> ( Model, Cmd AppMessage )
 update msg model =
     case msg of
         Input newInput ->
@@ -138,7 +138,7 @@ update msg model =
 -- SUBSCRIPTIONS
 
 
-subscriptions : Model -> Sub Msg
+subscriptions : Model -> Sub AppMessage
 subscriptions model =
     Sub.batch
         [ WebSocket.listen echoServer readMessage
@@ -146,7 +146,7 @@ subscriptions model =
         ]
 
 
-listenEnterKey : Model -> Sub Msg
+listenEnterKey : Model -> Sub AppMessage
 listenEnterKey model =
     Keyboard.presses
         (\key ->
@@ -161,7 +161,7 @@ listenEnterKey model =
 -- VIEW
 
 
-view : Model -> Html Msg
+view : Model -> Html AppMessage
 view model =
     div []
         [ div []
@@ -194,7 +194,7 @@ newChatMessage time model =
     }
 
 
-sendMessage : Model -> Msg
+sendMessage : Model -> AppMessage
 sendMessage model =
     -- TODO: isEmpty doesn't prevent sending just whitespace
     if isEmpty model.input then
