@@ -10,7 +10,7 @@ import Date exposing (Date, now)
 import Task
 import String exposing (isEmpty)
 import ChatMessage
-import ChatMessage exposing (ChatMessage)
+import ChatMessage exposing (ChatMessage, newChatMessage, newErrorMessage)
 import I18N
 
 
@@ -156,29 +156,11 @@ view model =
 
 viewMessage : ChatMessage -> Html msg
 viewMessage message =
-    div [ class message.msgType ]
+    div [ class (ChatMessage.typeToString message.msgType) ]
         [ div [ style [ smallFont ] ] [ text (toString message.time) ]
         , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
         , div [ style [ inlineBlock ] ] [ text message.text ]
         ]
-
-
-newChatMessage : Date -> Model -> ChatMessage
-newChatMessage time model =
-    { msgType = "chat"
-    , name = model.userName
-    , text = model.input
-    , time = time
-    }
-
-
-newErrorMessage : Date -> String -> ChatMessage
-newErrorMessage time description =
-    { msgType = "error"
-    , name = "error_reporter"
-    , text = description
-    , time = time
-    }
 
 
 sendMessage : Model -> AppMessage
@@ -186,7 +168,7 @@ sendMessage model =
     if isEmpty <| String.trim <| model.input then
         NoOp
     else
-        GetTimeAndThen (\time -> Send (newChatMessage time model))
+        GetTimeAndThen (\time -> Send (newChatMessage time model.userName model.input))
 
 
 
