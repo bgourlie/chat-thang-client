@@ -22,8 +22,8 @@ main =
         }
 
 
-echoServer : String
-echoServer =
+eventServer : String
+eventServer =
     "ws://localhost:8080"
 
 
@@ -78,7 +78,7 @@ update msg model =
             ( { model | input = newInput }, Cmd.none )
 
         Send chatMessage ->
-            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send echoServer (ChatMessage.toJson chatMessage) )
+            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send eventServer (ChatMessage.toJson chatMessage) )
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
@@ -105,7 +105,7 @@ assertNeverHandler =
 subscriptions : Model -> Sub AppMessage
 subscriptions model =
     Sub.batch
-        [ WebSocket.listen echoServer readMessage
+        [ WebSocket.listen eventServer readMessage
         , listenEnterKey model
         ]
 
