@@ -11,6 +11,7 @@ import Task
 import String exposing (isEmpty)
 import ChatMessage
 import ChatMessage exposing (ChatMessage)
+import I18N
 
 
 main =
@@ -36,9 +37,9 @@ readMessage json =
         Err message ->
             -- If the server fails to serialize a message, it returns an empty object.
             if json == "{}" then
-                GetTimeAndThen (\time -> Send (newErrorMessage time "An unexpected server error occurred."))
+                GetTimeAndThen (\time -> Send (newErrorMessage time I18N.unexpectedServerError))
             else
-                GetTimeAndThen (\time -> Send (newErrorMessage time "An error occurred while decoding a message from the server.  You may need to update the client."))
+                GetTimeAndThen (\time -> Send (newErrorMessage time I18N.messageDecodeError))
 
 
 
