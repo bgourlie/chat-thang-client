@@ -79,7 +79,7 @@ update msg model =
             ( { model | input = newInput }, Cmd.none )
 
         Send chatMessage ->
-            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send eventServer (ChatMessage.toJson chatMessage) )
+            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, transmitChatMessage chatMessage )
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
@@ -92,6 +92,11 @@ update msg model =
 
         NoOp ->
             ( model, Cmd.none )
+
+
+transmitChatMessage : ChatMessage -> Cmd msg
+transmitChatMessage chatMessage =
+    WebSocket.send eventServer (ChatMessage.toJson chatMessage)
 
 
 assertNeverHandler : a -> b
