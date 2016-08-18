@@ -6,14 +6,11 @@ import Html.Attributes exposing (..)
 import Html.Events exposing (..)
 import Keyboard
 import WebSocket
-import Json.Decode exposing ((:=))
-import Json.Decode as Json
-import Json.Encode exposing (object, encode, string)
 import Date exposing (Date, now)
-import Date
-import Date.Extra
 import Task
 import String exposing (isEmpty)
+import ChatMessage
+import ChatMessage exposing (ChatMessage)
 
 
 main =
@@ -30,34 +27,9 @@ echoServer =
     "ws://localhost:8080"
 
 
-messageEncoder : ChatMessage -> Json.Encode.Value
-messageEncoder message =
-    (object
-        [ ( "msgType", string "chat" )
-        , ( "name", string message.name )
-        , ( "text", string message.text )
-        , ( "time", string (Date.Extra.toUtcIsoString message.time) )
-        ]
-    )
-
-
-timeDecoder : Json.Decoder String -> Json.Decoder Date
-timeDecoder d =
-    Json.customDecoder d Date.fromString
-
-
-messageDecoder : Json.Decoder ChatMessage
-messageDecoder =
-    Json.object4 ChatMessage
-        ("msgType" := Json.string)
-        ("name" := Json.string)
-        ("text" := Json.string)
-        ("time" := Json.string |> timeDecoder)
-
-
 readMessage : String -> AppMessage
 readMessage json =
-    case Json.decodeString messageDecoder json of
+    case ChatMessage.fromJson json of
         Ok message ->
             NewMessage message
 
@@ -71,14 +43,6 @@ readMessage json =
 
 
 -- MODEL
-
-
-type alias ChatMessage =
-    { msgType : String
-    , name : String
-    , text : String
-    , time : Date
-    }
 
 
 type alias Model =
@@ -114,7 +78,7 @@ update msg model =
             ( { model | input = newInput }, Cmd.none )
 
         Send chatMessage ->
-            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send echoServer (encode 0 (messageEncoder chatMessage)) )
+            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, WebSocket.send echoServer (ChatMessage.toJson chatMessage) )
 
         NewMessage msg ->
             ( { model | messages = (msg :: model.messages) }, Cmd.none )
