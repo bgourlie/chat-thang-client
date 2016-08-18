@@ -149,7 +149,7 @@ view model =
             , input [ onInput updateName ] []
             ]
         , div [] (List.map viewMessage (List.reverse model.messages))
-        , input [ onInput Input, value model.input ] []
+        , input [ placeholder I18N.inputPlaceholder, onInput Input, value model.input ] []
         , button [ onClick (sendMessage model) ] [ text "Send" ]
         ]
 

@@ -1,4 +1,4 @@
-module I18N exposing (unexpectedServerError, messageDecodeError, unexpectedMessageType)
+module I18N exposing (unexpectedServerError, messageDecodeError, unexpectedMessageType, inputPlaceholder)
 
 import String
 
@@ -17,3 +17,7 @@ messageDecodeError =
 
 unexpectedMessageType =
     "Encountered an unexpected message type."
+
+
+inputPlaceholder =
+    "Press enter to send"
