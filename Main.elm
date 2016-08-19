@@ -9,9 +9,11 @@ import WebSocket
 import Date exposing (Date, now)
 import Task
 import String exposing (isEmpty)
-import ChatMessage
-import ChatMessage exposing (ChatMessage, newChatMessage, newErrorMessage)
+import Event
+import Event exposing (Event(ChatEvent, ErrorEvent))
+import TransportMessage exposing (TransportMessage, toJson)
 import I18N
+import ApplicationModels exposing (ChatMessage, Error)
 
 
 main =
@@ -30,16 +32,15 @@ eventServer =
 
 readMessage : String -> AppMessage
 readMessage json =
-    case ChatMessage.fromJson json of
-        Ok message ->
-            NewMessage message
+    GetTimeAndThen
+        (\time ->
+            case TransportMessage.read json time of
+                Ok message ->
+                    NewEvent (Event.fromTransportMessage message time)
 
-        Err message ->
-            -- If the server fails to serialize a message, it returns an empty object.
-            if json == "{}" then
-                GetTimeAndThen (\time -> Send (newErrorMessage time I18N.unexpectedServerError))
-            else
-                GetTimeAndThen (\time -> Send (newErrorMessage time I18N.messageDecodeError))
+                Err error ->
+                    NewEvent (ErrorEvent error)
+        )
 
 
 
@@ -49,14 +50,18 @@ readMessage json =
 type alias Model =
     { userName : String
     , input : String
-    , messages : List ChatMessage
-    , lastMessageSendTime : Date
+    , messages : List MessageViewModel
     }
+
+
+type MessageViewModel
+    = ChatView ChatMessage
+    | ErrorView Error
 
 
 init : ( Model, Cmd AppMessage )
 init =
-    ( Model "anonymous_user" "" [] (Date.fromTime 0), Cmd.none )
+    ( Model "anonymous_user" "" [], Cmd.none )
 
 
 
@@ -65,9 +70,9 @@ init =
 
 type AppMessage
     = Input String
-    | Send ChatMessage
+    | Send TransportMessage
     | GetTimeAndThen (Date -> AppMessage)
-    | NewMessage ChatMessage
+    | NewEvent Event
     | NameChange String
     | NoOp
 
@@ -79,10 +84,10 @@ update msg model =
             ( { model | input = newInput }, Cmd.none )
 
         Send chatMessage ->
-            ( { model | lastMessageSendTime = chatMessage.time, input = "" }, transmitChatMessage chatMessage )
+            ( { model | input = "" }, transmitChatMessage chatMessage )
 
-        NewMessage msg ->
-            ( { model | messages = (msg :: model.messages) }, Cmd.none )
+        NewEvent event ->
+            handleEvent model event
 
         GetTimeAndThen successHandler ->
             ( model, (Task.perform assertNeverHandler successHandler Date.now) )
@@ -94,9 +99,19 @@ update msg model =
             ( model, Cmd.none )
 
 
-transmitChatMessage : ChatMessage -> Cmd msg
+handleEvent : Model -> Event -> ( Model, Cmd AppMessage )
+handleEvent model e =
+    case e of
+        ChatEvent messageData ->
+            ( { model | messages = (ChatView messageData :: model.messages) }, Cmd.none )
+
+        ErrorEvent error ->
+            ( { model | messages = (ErrorView error :: model.messages) }, Cmd.none )
+
+
+transmitChatMessage : TransportMessage -> Cmd msg
 transmitChatMessage chatMessage =
-    WebSocket.send eventServer (ChatMessage.toJson chatMessage)
+    WebSocket.send eventServer (TransportMessage.toJson chatMessage)
 
 
 assertNeverHandler : a -> b
@@ -154,13 +169,21 @@ view model =
         ]
 
 
-viewMessage : ChatMessage -> Html msg
+viewMessage : MessageViewModel -> Html msg
 viewMessage message =
-    div [ class (ChatMessage.typeToString message.msgType) ]
-        [ div [ style [ smallFont ] ] [ text (toString message.time) ]
-        , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text message.name ]
-        , div [ style [ inlineBlock ] ] [ text message.text ]
-        ]
+    case message of
+        ChatView messageData ->
+            div []
+                [ div [ style [ smallFont ] ] [ text (toString messageData.receivedTime) ]
+                , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text messageData.name ]
+                , div [ style [ inlineBlock ] ] [ text messageData.text ]
+                ]
+
+        ErrorView error ->
+            div []
+                [ div [ style [ smallFont ] ] [ text (toString error.receivedTime) ]
+                , div [] [ text error.description ]
+                ]
 
 
 sendMessage : Model -> AppMessage
@@ -168,7 +191,7 @@ sendMessage model =
     if isEmpty <| String.trim <| model.input then
         NoOp
     else
-        GetTimeAndThen (\time -> Send (newChatMessage time model.userName model.input))
+        GetTimeAndThen (\time -> Send ({ msgType = "chat", name = model.userName, text = model.input, time = time }))
 
 
 
