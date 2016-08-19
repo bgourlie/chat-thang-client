@@ -146,6 +146,14 @@ updateName newName =
         NameChange (String.left 16 newName)
 
 
+sendMessage : Model -> AppMessage
+sendMessage model =
+    if isEmpty <| String.trim <| model.input then
+        NoOp
+    else
+        GetTimeAndThen (\time -> Send ({ msgType = "chat", name = model.userName, text = model.input, time = time }))
+
+
 
 -- VIEW
 
@@ -163,11 +171,3 @@ view model =
         , input [ placeholder I18N.inputPlaceholder, onInput Input, value model.input ] []
         , button [ onClick (sendMessage model) ] [ text "Send" ]
         ]
-
-
-sendMessage : Model -> AppMessage
-sendMessage model =
-    if isEmpty <| String.trim <| model.input then
-        NoOp
-    else
-        GetTimeAndThen (\time -> Send ({ msgType = "chat", name = model.userName, text = model.input, time = time }))
