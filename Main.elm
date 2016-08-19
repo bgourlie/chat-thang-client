@@ -14,6 +14,7 @@ import Event exposing (Event(ChatEvent, ErrorEvent))
 import TransportMessage exposing (TransportMessage, toJson)
 import I18N
 import ApplicationModels exposing (ChatMessage, Error)
+import MessageView exposing (MessageViewModel(ChatView, ErrorView), messageView)
 
 
 main =
@@ -52,11 +53,6 @@ type alias Model =
     , input : String
     , messages : List MessageViewModel
     }
-
-
-type MessageViewModel
-    = ChatView ChatMessage
-    | ErrorView Error
 
 
 init : ( Model, Cmd AppMessage )
@@ -163,27 +159,10 @@ view model =
             [ text "User Name: "
             , input [ onInput updateName ] []
             ]
-        , div [] (List.map viewMessage (List.reverse model.messages))
+        , div [] (List.map messageView (List.reverse model.messages))
         , input [ placeholder I18N.inputPlaceholder, onInput Input, value model.input ] []
         , button [ onClick (sendMessage model) ] [ text "Send" ]
         ]
-
-
-viewMessage : MessageViewModel -> Html msg
-viewMessage message =
-    case message of
-        ChatView messageData ->
-            div []
-                [ div [ style [ smallFont ] ] [ text (toString messageData.receivedTime) ]
-                , div [ style [ inlineBlock, bold, withWidth "150px" ] ] [ text messageData.name ]
-                , div [ style [ inlineBlock ] ] [ text messageData.text ]
-                ]
-
-        ErrorView error ->
-            div []
-                [ div [ style [ smallFont ] ] [ text (toString error.receivedTime) ]
-                , div [] [ text error.description ]
-                ]
 
 
 sendMessage : Model -> AppMessage
@@ -192,27 +171,3 @@ sendMessage model =
         NoOp
     else
         GetTimeAndThen (\time -> Send ({ msgType = "chat", name = model.userName, text = model.input, time = time }))
-
-
-
--- CSS Helpers
-
-
-inlineBlock : ( String, String )
-inlineBlock =
-    ( "display", "inline-block" )
-
-
-bold : ( String, String )
-bold =
-    ( "font-weight", "bold" )
-
-
-withWidth : String -> ( String, String )
-withWidth width =
-    ( "width", width )
-
-
-smallFont : ( String, String )
-smallFont =
-    ( "font-size", "10px" )
